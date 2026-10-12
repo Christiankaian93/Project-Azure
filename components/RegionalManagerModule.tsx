@@ -31,6 +31,7 @@ import RegionalGoogleReviewRecapTable from './RegionalGoogleReviewRecapTable';
 import { RegionalCommodityRecapTable } from './RegionalCommodityRecapTable';
 import { RegionalPromoRecapTable } from './RegionalPromoRecapTable';
 import { RegionalStrategiMenuRecapTable } from './RegionalStrategiMenuRecapTable';
+import { RegionalCogsRecapTable } from './RegionalCogsRecapTable';
 import { buildAggregatedGlobalData } from '../lib/aggregators';
 import { OutletConfig } from '../types';
 import { OUTLETS, REGIONAL_AREAS, getAreaForOutlet, QA_PASSING_SCORES, OT_RATE, INITIAL_STATE, ORDER_SCHEDULES_BY_AREA, getOrderScheduleForOutlet, getStoredOtBudgetSettings, getActiveOutletNames, getActiveRegionalAreas, getActiveOutletConfigs } from '../constants';
@@ -3299,19 +3300,15 @@ const RegionalManagerModule: React.FC<RMProps> = ({
                 />
               )}
               {activeTab === 'COGS' && (
-                <CogsModule 
-                  data={activeData} 
-                  selectedDate={`${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}-01`}
-                  selectedOutlet={selectedOutlet || 'ALL'}
-                  onUpdate={(upd) => {
-                    if (onUpdate) {
-                      Object.entries(upd).forEach(([k, v]) => onUpdate(k as keyof AppState, v));
-                    }
-                  }}
+                <RegionalCogsRecapTable
+                  allOutletsData={allOutletsData}
+                  data={activeData}
+                  selectedMonth={selectedMonth}
+                  selectedYear={selectedYear}
+                  selectedArea={selectedArea}
+                  selectedOutlet={selectedOutlet}
+                  onSelectOutlet={setSelectedOutlet}
                   showToast={showToast}
-                  allMonthlyData={allOutletsData}
-                  filterMonth={String(selectedMonth)}
-                  filterYear={String(selectedYear)}
                 />
               )}
               {activeTab === 'RECEIVING_SHEET' && (
