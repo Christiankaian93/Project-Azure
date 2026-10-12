@@ -10,10 +10,21 @@ import {
 } from 'firebase/auth';
 import { initializeFirestore, memoryLocalCache, setLogLevel } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
-import firebaseConfig from './firebase-applet-config.json';
+import appletConfig from './firebase-applet-config.json';
 
 // Suppress ALL Firestore SDK logs to keep console clean
 setLogLevel('silent');
+
+const firebaseConfig = {
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || appletConfig.apiKey,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || appletConfig.authDomain,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || appletConfig.projectId,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || appletConfig.storageBucket,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || appletConfig.messagingSenderId,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID || appletConfig.appId,
+  firestoreDatabaseId: import.meta.env.VITE_FIREBASE_DATABASE_ID || (appletConfig as any).firestoreDatabaseId,
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || (appletConfig as any).measurementId
+};
 
 const app = initializeApp(firebaseConfig);
 
