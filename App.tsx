@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { ModuleType, AppState, User, SyncStatus, Outlet, Notification, LeaveRecord } from './types';
-import { INITIAL_STATE, ROLES_BY_DIVISION, DIVISIONS, OUTLETS, getActiveOutletNames, getDeletedOutletNames } from './constants';
+import { INITIAL_STATE, ROLES_BY_DIVISION, DIVISIONS, OUTLETS, getActiveOutletNames } from './constants';
 import { fetchUserData, saveGlobalData, saveOutletData, startRealtimeListener, startNotificationListener, isQuotaExceeded, resetQuotaExceeded, fetchAllOutletsData, startAllOutletsListener, testConnection } from './services/cloudService';
 import { safeStorage, safeClipboard, safeWindow } from './lib/safeStorage';
 import { toLocalDateStr } from './lib/dateUtils';
@@ -551,7 +551,7 @@ const App: React.FC = () => {
         });
       }
     }
-    if (globalData.dailyOvertime && (!globalData.outlet || globalData.outlet === user.selectedOutlet)) {
+    if (globalData.dailyOvertime) {
       Object.entries(globalData.dailyOvertime).forEach(([dateStr, entries]) => {
         if (Array.isArray(entries) && entries.length > 0) {
           mergedDailyOvertime[dateStr] = entries;
@@ -561,7 +561,7 @@ const App: React.FC = () => {
 
     // Consolidate manpowerData across all 12 months, globalData, and monthBase so filled manpower is never lost when changing months
     const mergedManpowerData: Record<string, any> = {};
-    if (globalData.manpowerData && typeof globalData.manpowerData === 'object' && (!globalData.outlet || globalData.outlet === user.selectedOutlet)) {
+    if (globalData.manpowerData && typeof globalData.manpowerData === 'object') {
       Object.assign(mergedManpowerData, globalData.manpowerData);
     }
     for (let m = 0; m < 12; m++) {
@@ -668,20 +668,19 @@ const App: React.FC = () => {
   }, []);
 
   const mergedAllOutletsData = useMemo(() => {
-    const deletedNames = new Set(getDeletedOutletNames());
-    const activeNames = new Set(getActiveOutletNames().filter(n => !deletedNames.has(n)));
+    const activeNames = new Set(getActiveOutletNames());
     const merged: Record<string, any> = {};
 
-    // 1. Include only valid non-deleted active outlets from Firestore listener & server sync
+    // 1. Include all valid outlets from Firestore listener & server sync (allOutletsData)
     Object.entries(allOutletsData).forEach(([oName, oVal]: [string, any]) => {
-      if (oVal && !oVal.isDeleted && !deletedNames.has(oName) && activeNames.has(oName)) {
+      if (oVal) {
         merged[oName] = { ...oVal, isDeleted: false };
       }
     });
 
-    // 2. Also ensure all configured active outlets exist in merged if not deleted
+    // 2. Also ensure all configured active outlets exist in merged
     activeNames.forEach(name => {
-      if (!merged[name] && !deletedNames.has(name)) {
+      if (!merged[name]) {
         merged[name] = { monthlyData: {}, isDeleted: false };
       }
     });
@@ -971,8 +970,6 @@ const App: React.FC = () => {
   const handleLogin = async (email: string, outlet: Outlet) => {
     isHydrated.current = false;
     setIsRefreshing(true);
-    setGlobalDataState({ ...INITIAL_STATE, outlet });
-    setOutletMonthlyDataState({});
 
     let cloudData = await fetchUserData(email, outlet);
 
@@ -1032,35 +1029,18 @@ const App: React.FC = () => {
       const { staffList, leaveRecords, dailyOvertime, dailyAttendance, dailyExternalAudit, dailyCPA, guestComplaints, affiliateHistory, ...rest } = cloudData;
       
       const hydratedGlobal: any = {
-        outlet,
-        staffList: staffList || [],
-        leaveRecords: leaveRecords || [],
-        dailyOvertime: dailyOvertime || {},
-        dailyAttendance: dailyAttendance || {},
+        staffList: staffList || INITIAL_STATE.staffList,
+        leaveRecords: leaveRecords || INITIAL_STATE.leaveRecords,
+        dailyOvertime: dailyOvertime || INITIAL_STATE.dailyOvertime,
+        dailyAttendance: dailyAttendance || INITIAL_STATE.dailyAttendance,
         dailyExternalAudit: dailyExternalAudit || {},
         dailyCPA: dailyCPA || {},
         guestComplaints: guestComplaints || [],
         affiliateHistory: affiliateHistory || []
       };
 
-      setGlobalDataState(prev => {
-        if (prev && prev.outlet === outlet) {
-          return {
-            ...hydratedGlobal,
-            ...prev,
-            staffList: (prev.staffList && prev.staffList.length > 0) ? prev.staffList : hydratedGlobal.staffList,
-            dailyAttendance: { ...(hydratedGlobal.dailyAttendance || {}), ...(prev.dailyAttendance || {}) },
-            leaveRecords: (prev.leaveRecords && prev.leaveRecords.length > 0) ? prev.leaveRecords : hydratedGlobal.leaveRecords
-          };
-        }
-        return hydratedGlobal;
-      });
-      setOutletMonthlyData(prev => {
-        if (prev && Object.keys(prev).length > 0) {
-          return mergeDeep(rest || {}, prev);
-        }
-        return rest || {};
-      });
+      setGlobalDataState(hydratedGlobal);
+      setOutletMonthlyData(rest || {});
 
       // Build initial sync hashes
       const globalFieldsList = ['staffList', 'leaveRecords', 'dailyOvertime', 'weeklyOvertime', 'dailyAttendance', 'dailyExternalAudit', 'dailyCPA', 'dailyGSI', 'guestComplaints', 'affiliateHistory', 'manpowerData'];
@@ -1327,24 +1307,13 @@ const App: React.FC = () => {
     return () => clearInterval(interval);
   }, [user.isLoggedIn]);
 
-  // Auto-refresh and flush sync when app visibility changes (especially useful on mobile browsers and tablets which suspend tabs)
+  // Auto-refresh when the app becomes visible/active again (especially useful on mobile browsers and tablets which suspend tabs)
   useEffect(() => {
-    const handleVisibilityChange = async () => {
-      if (document.visibilityState === 'hidden') {
-        // Immediately flush when mobile/tablet app is put in background or phone is locked
-        if (flushPendingSyncRef.current) {
-          try {
-            await flushPendingSyncRef.current();
-          } catch (e) {
-            console.error('[Visibility] Error flushing sync on hide:', e);
-          }
-        }
-      } else if (document.visibilityState === 'visible') {
-        console.info('[Visibility] Tab activated, verifying sync...');
-        if (flushPendingSyncRef.current) {
-          try {
-            await flushPendingSyncRef.current();
-          } catch (e) {}
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        console.info('[Visibility] Tab activated, refreshing latest outlet and regional data from server...');
+        if (user.isLoggedIn && user.email && user.selectedOutlet) {
+          handleLogin(user.email, user.selectedOutlet);
         }
         fetchAllOutletsData().then(initialData => {
           if (initialData && Object.keys(initialData).length > 0) {
@@ -1768,8 +1737,6 @@ const App: React.FC = () => {
     try {
       await signOut(auth);
       setUser({ email: '', isLoggedIn: false });
-      setGlobalDataState(INITIAL_STATE);
-      setOutletMonthlyDataState({});
       safeStorage.removeItem('BARN_USER_SESSION');
       safeStorage.removeItem('MANUAL_USER_EMAIL');
       safeStorage.removeItem('BARN_SELECTED_OUTLET');
@@ -2143,9 +2110,9 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-900 flex flex-col w-full overflow-x-auto touch-pan-all">
-      <main className="flex-1 overflow-y-auto overflow-x-auto p-2 sm:p-4 md:p-8 custom-scrollbar scroll-smooth relative touch-pan-all" style={{ WebkitOverflowScrolling: 'touch', touchAction: 'pan-x pan-y pinch-zoom' }}>
-        <div className="sticky top-0 z-50 -mx-2 sm:-mx-4 md:-mx-8 px-2 sm:px-4 md:px-8 mb-4 md:mb-6 bg-slate-900/80 backdrop-blur-md pb-4 border-b border-white/5">
+    <div className="min-h-screen bg-slate-900 flex flex-col">
+      <main className="flex-1 overflow-y-auto overflow-x-auto p-4 md:p-8 custom-scrollbar scroll-smooth relative">
+        <div className="sticky top-0 z-50 -mx-4 md:-mx-8 px-4 md:px-8 mb-6 bg-slate-900/80 backdrop-blur-md pb-4 border-b border-white/5">
           <Header 
             filters={filters}
             onFilterChange={setFilters}
