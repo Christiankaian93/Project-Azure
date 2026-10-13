@@ -431,7 +431,6 @@ export const INITIAL_STATE: AppState = {
   peminjamanRecords: [],
   logisticBeginningStocks: {},
   logisticPeriodPrices: {},
-  dailyVoidBills: {},
 };
 
 export const QA_PASSING_SCORES = {

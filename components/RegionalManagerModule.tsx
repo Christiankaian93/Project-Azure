@@ -32,7 +32,6 @@ import { RegionalCommodityRecapTable } from './RegionalCommodityRecapTable';
 import { RegionalPromoRecapTable } from './RegionalPromoRecapTable';
 import { RegionalStrategiMenuRecapTable } from './RegionalStrategiMenuRecapTable';
 import { RegionalCogsRecapTable } from './RegionalCogsRecapTable';
-import { RegionalVoidBillRecapTable } from './RegionalVoidBillRecapTable';
 import { buildAggregatedGlobalData } from '../lib/aggregators';
 import { OutletConfig } from '../types';
 import { OUTLETS, REGIONAL_AREAS, getAreaForOutlet, QA_PASSING_SCORES, OT_RATE, INITIAL_STATE, ORDER_SCHEDULES_BY_AREA, getOrderScheduleForOutlet, getStoredOtBudgetSettings, getActiveOutletNames, getActiveRegionalAreas, getActiveOutletConfigs, getDeletedOutletNames } from '../constants';
@@ -2871,7 +2870,6 @@ const RegionalManagerModule: React.FC<RMProps> = ({
     { id: 'GSI_REGIONAL', label: 'Rekapan GSI', icon: 'fa-poll', sub: 'Total Respon & % Subject' },
     { id: 'GOOGLE_REVIEW_REGIONAL', label: 'Google Review', icon: 'fa-star', sub: 'Total Review & Rating' },
     { id: 'COMPLIMENTARY', label: 'Complimentary', icon: 'fa-gift', sub: 'Promo & Matrix' },
-    { id: 'VOID_BILL_REGIONAL', label: 'Rekapan Void Bill', icon: 'fa-ban', sub: 'Staff, PIC & Nominal' },
     { id: 'BANKING_PROMO_REGIONAL', label: 'Rekapan Promo Bank', icon: 'fa-tags', sub: 'Promo Aktif & History Promo' },
     { id: 'STRATEGI_MENU_REGIONAL', label: 'Menu Strategi', icon: 'fa-bullseye', sub: 'Penyeimbang & Percepatan' },
   ];
@@ -3172,7 +3170,6 @@ const RegionalManagerModule: React.FC<RMProps> = ({
                       {activeTab === 'WEEKLY_REPORT' && 'Regional Weekly Performance'}
                       {activeTab === 'SATISFACTION' && 'Ledger: Guest Satisfaction'}
                       {activeTab === 'COMPLIMENTARY' && 'Ledger: Complimentary'}
-                      {activeTab === 'VOID_BILL_REGIONAL' && 'Regional Rekapan Void Bill (Staff, PIC & Alasan)'}
                       {activeTab === 'CITY_LEDGER' && 'Ledger: City Ledger'}
                       {activeTab === 'ENERGY_COST' && 'Regional Energy Cost (Listrik, Gas & Air)'}
                       {activeTab === 'PATTY_CASH_EXPENSE' && 'Regional Rekapan Patty Cash (OPEX)'}
@@ -3456,18 +3453,6 @@ const RegionalManagerModule: React.FC<RMProps> = ({
                   filters={{ month: String(selectedMonth), year: String(selectedYear) }}
                   showToast={showToast}
                   isRegionalView={true}
-                />
-              )}
-              {activeTab === 'VOID_BILL_REGIONAL' && (
-                <RegionalVoidBillRecapTable
-                  allOutletsData={allOutletsData}
-                  data={activeData}
-                  selectedMonth={selectedMonth}
-                  selectedYear={selectedYear}
-                  selectedArea={selectedArea}
-                  selectedOutlet={selectedOutlet}
-                  onSelectOutlet={setSelectedOutlet}
-                  showToast={showToast}
                 />
               )}
               {activeTab === 'BANKING_PROMO_REGIONAL' && (

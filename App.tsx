@@ -36,7 +36,6 @@ import ComplimentaryModule from './components/ComplimentaryModule';
 import EnergyCostModule from './components/EnergyCostModule';
 import WeeklyOvertimeInputModule from './components/WeeklyOvertimeInputModule';
 import { StrategiMenuModule } from './components/StrategiMenuModule';
-import { VoidBillModule } from './components/VoidBillModule';
 import RealtimeFeatures from './components/RealtimeFeatures';
 import DailyReminderPopup from './components/DailyReminderPopup';
 import { OutletControlModal } from './components/OutletControlModal';
@@ -575,25 +574,6 @@ const App: React.FC = () => {
       Object.assign(mergedManpowerData, monthBase.manpowerData);
     }
 
-    const mergedDailyVoidBills: Record<string, any[]> = {};
-    for (let m = 0; m < 12; m++) {
-      const mData = outletMonthlyData[m.toString()];
-      if (mData && mData.dailyVoidBills) {
-        Object.entries(mData.dailyVoidBills).forEach(([dStr, list]) => {
-          if (Array.isArray(list) && list.length > 0) {
-            mergedDailyVoidBills[dStr] = list;
-          }
-        });
-      }
-    }
-    if (monthBase.dailyVoidBills) {
-      Object.entries(monthBase.dailyVoidBills).forEach(([dStr, list]) => {
-        if (Array.isArray(list) && list.length > 0) {
-          mergedDailyVoidBills[dStr] = list;
-        }
-      });
-    }
-
     return {
       ...monthBase,
       staffList,
@@ -604,8 +584,7 @@ const App: React.FC = () => {
       logisticBeginningStocks: mergedBeginningStocks,
       dailyLogisticRecords: mergedDailyRecords,
       peminjamanRecords: mergedPeminjaman,
-      logisticPeriodPrices: mergedPeriodPrices,
-      dailyVoidBills: mergedDailyVoidBills
+      logisticPeriodPrices: mergedPeriodPrices
     } as AppState;
   }, [outletMonthlyData, filters.month, globalData.manpowerData]);
 
@@ -1064,8 +1043,24 @@ const App: React.FC = () => {
         affiliateHistory: affiliateHistory || []
       };
 
-      setGlobalDataState(hydratedGlobal);
-      setOutletMonthlyData(rest || {});
+      setGlobalDataState(prev => {
+        if (prev && prev.outlet === outlet) {
+          return {
+            ...hydratedGlobal,
+            ...prev,
+            staffList: (prev.staffList && prev.staffList.length > 0) ? prev.staffList : hydratedGlobal.staffList,
+            dailyAttendance: { ...(hydratedGlobal.dailyAttendance || {}), ...(prev.dailyAttendance || {}) },
+            leaveRecords: (prev.leaveRecords && prev.leaveRecords.length > 0) ? prev.leaveRecords : hydratedGlobal.leaveRecords
+          };
+        }
+        return hydratedGlobal;
+      });
+      setOutletMonthlyData(prev => {
+        if (prev && Object.keys(prev).length > 0) {
+          return mergeDeep(rest || {}, prev);
+        }
+        return rest || {};
+      });
 
       // Build initial sync hashes
       const globalFieldsList = ['staffList', 'leaveRecords', 'dailyOvertime', 'weeklyOvertime', 'dailyAttendance', 'dailyExternalAudit', 'dailyCPA', 'dailyGSI', 'guestComplaints', 'affiliateHistory', 'manpowerData'];
@@ -1332,13 +1327,24 @@ const App: React.FC = () => {
     return () => clearInterval(interval);
   }, [user.isLoggedIn]);
 
-  // Auto-refresh when the app becomes visible/active again (especially useful on mobile browsers and tablets which suspend tabs)
+  // Auto-refresh and flush sync when app visibility changes (especially useful on mobile browsers and tablets which suspend tabs)
   useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        console.info('[Visibility] Tab activated, refreshing latest outlet and regional data from server...');
-        if (user.isLoggedIn && user.email && user.selectedOutlet) {
-          handleLogin(user.email, user.selectedOutlet);
+    const handleVisibilityChange = async () => {
+      if (document.visibilityState === 'hidden') {
+        // Immediately flush when mobile/tablet app is put in background or phone is locked
+        if (flushPendingSyncRef.current) {
+          try {
+            await flushPendingSyncRef.current();
+          } catch (e) {
+            console.error('[Visibility] Error flushing sync on hide:', e);
+          }
+        }
+      } else if (document.visibilityState === 'visible') {
+        console.info('[Visibility] Tab activated, verifying sync...');
+        if (flushPendingSyncRef.current) {
+          try {
+            await flushPendingSyncRef.current();
+          } catch (e) {}
         }
         fetchAllOutletsData().then(initialData => {
           if (initialData && Object.keys(initialData).length > 0) {
@@ -2065,16 +2071,6 @@ const App: React.FC = () => {
             showToast={showToast}
             allMonthlyData={outletMonthlyData}
           />;
-        case ModuleType.VOID_BILL:
-          return <VoidBillModule
-            data={currentData}
-            allMonthlyData={outletMonthlyData}
-            filters={filters}
-            selectedOutlet={user.selectedOutlet!}
-            isRegionalView={false}
-            onUpdate={updateCurrentData}
-            showToast={showToast}
-          />;
         case ModuleType.REGIONAL_REPORT:
           return <RegionalManagerModule 
             data={currentData} 
@@ -2147,9 +2143,9 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-900 flex flex-col">
-      <main className="flex-1 overflow-y-auto overflow-x-auto p-4 md:p-8 custom-scrollbar scroll-smooth relative">
-        <div className="sticky top-0 z-50 -mx-4 md:-mx-8 px-4 md:px-8 mb-6 bg-slate-900/80 backdrop-blur-md pb-4 border-b border-white/5">
+    <div className="min-h-screen bg-slate-900 flex flex-col w-full overflow-x-auto touch-pan-all">
+      <main className="flex-1 overflow-y-auto overflow-x-auto p-2 sm:p-4 md:p-8 custom-scrollbar scroll-smooth relative touch-pan-all" style={{ WebkitOverflowScrolling: 'touch', touchAction: 'pan-x pan-y pinch-zoom' }}>
+        <div className="sticky top-0 z-50 -mx-2 sm:-mx-4 md:-mx-8 px-2 sm:px-4 md:px-8 mb-4 md:mb-6 bg-slate-900/80 backdrop-blur-md pb-4 border-b border-white/5">
           <Header 
             filters={filters}
             onFilterChange={setFilters}
