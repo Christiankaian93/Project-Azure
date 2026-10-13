@@ -32,9 +32,10 @@ import { RegionalCommodityRecapTable } from './RegionalCommodityRecapTable';
 import { RegionalPromoRecapTable } from './RegionalPromoRecapTable';
 import { RegionalStrategiMenuRecapTable } from './RegionalStrategiMenuRecapTable';
 import { RegionalCogsRecapTable } from './RegionalCogsRecapTable';
+import { RegionalVoidBillRecapTable } from './RegionalVoidBillRecapTable';
 import { buildAggregatedGlobalData } from '../lib/aggregators';
 import { OutletConfig } from '../types';
-import { OUTLETS, REGIONAL_AREAS, getAreaForOutlet, QA_PASSING_SCORES, OT_RATE, INITIAL_STATE, ORDER_SCHEDULES_BY_AREA, getOrderScheduleForOutlet, getStoredOtBudgetSettings, getActiveOutletNames, getActiveRegionalAreas, getActiveOutletConfigs } from '../constants';
+import { OUTLETS, REGIONAL_AREAS, getAreaForOutlet, QA_PASSING_SCORES, OT_RATE, INITIAL_STATE, ORDER_SCHEDULES_BY_AREA, getOrderScheduleForOutlet, getStoredOtBudgetSettings, getActiveOutletNames, getActiveRegionalAreas, getActiveOutletConfigs, getDeletedOutletNames } from '../constants';
 import { motion, AnimatePresence } from 'motion/react';
 import ShareActions from './ShareActions';
 import { 
@@ -93,7 +94,8 @@ const RevenueTab: React.FC<TabProps> = ({ data, selectedMonth, selectedYear, isP
   const [revenueSubTab, setRevenueSubTab] = useState<'MATRIX' | 'SUMMARY' | 'ALL'>('MATRIX');
 
   const displayedOutlets = useMemo(() => {
-    const activeNames = Array.from(new Set([...getActiveOutletNames(), ...Object.keys(data || {})])).filter(o => !data?.[o]?.isDeleted);
+    const deletedSet = new Set(getDeletedOutletNames());
+    const activeNames = getActiveOutletNames().filter(o => !deletedSet.has(o) && !data?.[o]?.isDeleted);
     const activeAreas = getActiveRegionalAreas(activeNames);
     if (selectedOutlet && selectedOutlet !== 'ALL') {
       return activeNames.filter(o => o === selectedOutlet);
@@ -105,7 +107,8 @@ const RevenueTab: React.FC<TabProps> = ({ data, selectedMonth, selectedYear, isP
   }, [selectedOutlet, selectedArea, data]);
 
   const areaGroups = useMemo(() => {
-    const activeNames = Array.from(new Set([...getActiveOutletNames(), ...Object.keys(data || {})])).filter(o => !data?.[o]?.isDeleted);
+    const deletedSet = new Set(getDeletedOutletNames());
+    const activeNames = getActiveOutletNames().filter(o => !deletedSet.has(o) && !data?.[o]?.isDeleted);
     const activeAreas = getActiveRegionalAreas(activeNames);
     const areas = ['JAKARTA', 'TANGGERANG', 'BEKASI & CIBUBUR'];
     if (selectedOutlet && selectedOutlet !== 'ALL') {
@@ -2311,7 +2314,8 @@ const ConsolidatedLedgerTab: React.FC<TabProps & { type: 'SATISFACTION' | 'CITY_
 
 const OvertimeMTDTab: React.FC<TabProps> = ({ data, selectedMonth, selectedYear, globalData, isPreviewMode, showToast, selectedOutlet, selectedArea }) => {
   const displayedOutlets = useMemo(() => {
-    const activeNames = Array.from(new Set([...getActiveOutletNames(), ...Object.keys(data || {})])).filter(o => !(data as any)?.[o]?.isDeleted);
+    const deletedSet = new Set(getDeletedOutletNames());
+    const activeNames = getActiveOutletNames().filter(o => !deletedSet.has(o) && !(data as any)?.[o]?.isDeleted);
     const activeAreas = getActiveRegionalAreas(activeNames);
     if (selectedOutlet && selectedOutlet !== 'ALL') {
       return activeNames.filter(o => o === selectedOutlet);
@@ -2323,7 +2327,8 @@ const OvertimeMTDTab: React.FC<TabProps> = ({ data, selectedMonth, selectedYear,
   }, [selectedOutlet, selectedArea, data]);
 
   const areaGroups = useMemo(() => {
-    const activeNames = Array.from(new Set([...getActiveOutletNames(), ...Object.keys(data || {})])).filter(o => !(data as any)?.[o]?.isDeleted);
+    const deletedSet = new Set(getDeletedOutletNames());
+    const activeNames = getActiveOutletNames().filter(o => !deletedSet.has(o) && !(data as any)?.[o]?.isDeleted);
     const activeAreas = getActiveRegionalAreas(activeNames);
     const areas = ['JAKARTA', 'TANGGERANG', 'BEKASI & CIBUBUR'];
     if (selectedOutlet && selectedOutlet !== 'ALL') {
@@ -2735,17 +2740,12 @@ const RegionalManagerModule: React.FC<RMProps> = ({
   }, []);
 
   const availableOutlets = useMemo(() => {
-    const activeNames = getActiveOutletNames(activeOutletConfigs);
+    const deletedSet = new Set(getDeletedOutletNames());
+    const activeNames = getActiveOutletNames(activeOutletConfigs).filter(n => !deletedSet.has(n));
     const set = new Set<string>();
     activeNames.forEach(name => {
       const d = allOutletsData?.[name];
-      if (!d || !d.isDeleted) {
-        set.add(name);
-      }
-    });
-    // Also include any outlet that is currently in allOutletsData from database
-    Object.entries(allOutletsData || {}).forEach(([name, d]: [string, any]) => {
-      if (!d || !d.isDeleted) {
+      if (!deletedSet.has(name) && (!d || !d.isDeleted)) {
         set.add(name);
       }
     });
@@ -2871,6 +2871,7 @@ const RegionalManagerModule: React.FC<RMProps> = ({
     { id: 'GSI_REGIONAL', label: 'Rekapan GSI', icon: 'fa-poll', sub: 'Total Respon & % Subject' },
     { id: 'GOOGLE_REVIEW_REGIONAL', label: 'Google Review', icon: 'fa-star', sub: 'Total Review & Rating' },
     { id: 'COMPLIMENTARY', label: 'Complimentary', icon: 'fa-gift', sub: 'Promo & Matrix' },
+    { id: 'VOID_BILL_REGIONAL', label: 'Rekapan Void Bill', icon: 'fa-ban', sub: 'Staff, PIC & Nominal' },
     { id: 'BANKING_PROMO_REGIONAL', label: 'Rekapan Promo Bank', icon: 'fa-tags', sub: 'Promo Aktif & History Promo' },
     { id: 'STRATEGI_MENU_REGIONAL', label: 'Menu Strategi', icon: 'fa-bullseye', sub: 'Penyeimbang & Percepatan' },
   ];
@@ -3171,6 +3172,7 @@ const RegionalManagerModule: React.FC<RMProps> = ({
                       {activeTab === 'WEEKLY_REPORT' && 'Regional Weekly Performance'}
                       {activeTab === 'SATISFACTION' && 'Ledger: Guest Satisfaction'}
                       {activeTab === 'COMPLIMENTARY' && 'Ledger: Complimentary'}
+                      {activeTab === 'VOID_BILL_REGIONAL' && 'Regional Rekapan Void Bill (Staff, PIC & Alasan)'}
                       {activeTab === 'CITY_LEDGER' && 'Ledger: City Ledger'}
                       {activeTab === 'ENERGY_COST' && 'Regional Energy Cost (Listrik, Gas & Air)'}
                       {activeTab === 'PATTY_CASH_EXPENSE' && 'Regional Rekapan Patty Cash (OPEX)'}
@@ -3454,6 +3456,18 @@ const RegionalManagerModule: React.FC<RMProps> = ({
                   filters={{ month: String(selectedMonth), year: String(selectedYear) }}
                   showToast={showToast}
                   isRegionalView={true}
+                />
+              )}
+              {activeTab === 'VOID_BILL_REGIONAL' && (
+                <RegionalVoidBillRecapTable
+                  allOutletsData={allOutletsData}
+                  data={activeData}
+                  selectedMonth={selectedMonth}
+                  selectedYear={selectedYear}
+                  selectedArea={selectedArea}
+                  selectedOutlet={selectedOutlet}
+                  onSelectOutlet={setSelectedOutlet}
+                  showToast={showToast}
                 />
               )}
               {activeTab === 'BANKING_PROMO_REGIONAL' && (

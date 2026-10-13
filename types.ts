@@ -54,7 +54,8 @@ export enum ModuleType {
   WEEKLY_OVERTIME = 'WEEKLY_OVERTIME',
   GOOGLE_SHEETS = 'GOOGLE_SHEETS',
   GMAIL = 'GMAIL',
-  STRATEGI = 'STRATEGI'
+  STRATEGI = 'STRATEGI',
+  VOID_BILL = 'VOID_BILL'
 }
 
 export type StrategyCategory = 'PENYEIMBANG' | 'PERCEPATAN';
@@ -980,4 +981,18 @@ export interface AppState {
   }[];
   manpowerData?: Record<string, OutletManpowerData>;
   dailyStrategy?: Record<string, DailyStrategyRecord>;
+  dailyVoidBills?: Record<string, VoidBillRecord[]>;
+}
+
+export interface VoidBillRecord {
+  id: string;
+  date: string; // YYYY-MM-DD
+  staffName: string; // Diambil dari data manpower / staff list
+  picName: string; // Nama PIC
+  amount: number; // Nominal Transaksi
+  reason: string; // Alasan void
+  billNumber?: string; // Nomor bill (opsional)
+  outlet?: string;
+  notes?: string;
+  createdAt?: string;
 }

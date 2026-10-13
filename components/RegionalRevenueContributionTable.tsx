@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
-import { OUTLETS, getAreaForOutlet, MONTHS, getActiveOutletNames } from '../constants';
+import { OUTLETS, getAreaForOutlet, MONTHS, getActiveOutletNames, getDeletedOutletNames } from '../constants';
 import { AppState } from '../types';
 
 interface Props {
@@ -56,10 +56,9 @@ export const RegionalRevenueContributionTable: React.FC<Props> = ({
   const monthName = MONTH_NAMES[selectedMonth];
 
   const activeOutletsList = useMemo(() => {
-    const fromConfig = getActiveOutletNames();
-    const fromData = Object.keys(allOutletsData || {});
-    const combined = Array.from(new Set([...fromConfig, ...fromData]));
-    return combined.filter(name => {
+    const deletedSet = new Set(getDeletedOutletNames());
+    const fromConfig = getActiveOutletNames().filter(n => !deletedSet.has(n));
+    return fromConfig.filter(name => {
       const d = allOutletsData?.[name];
       return !d || !d.isDeleted;
     });

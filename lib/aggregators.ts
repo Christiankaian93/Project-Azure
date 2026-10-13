@@ -45,6 +45,7 @@ export const buildAggregatedGlobalData = (allOutletsData: Record<string, any>, c
   const aggregatedLogisticBeginningStocks: Record<string, Record<string, number>> = {};
   const aggregatedLogisticPeriodPrices: Record<string, Record<string, number>> = {};
   const aggregatedManpowerData: Record<string, any> = {};
+  const aggregatedVoidBills: Record<string, any[]> = {};
   const outletSalesAdded = new Set<string>();
   const outletExpensesAdded = new Set<string>();
 
@@ -149,12 +150,20 @@ export const buildAggregatedGlobalData = (allOutletsData: Record<string, any>, c
     if (currentGlobalData.energyCost && typeof currentGlobalData.energyCost === 'object') {
       Object.assign(aggregatedEnergyCost, currentGlobalData.energyCost);
     }
+    if (currentGlobalData.dailyVoidBills) {
+      Object.entries(currentGlobalData.dailyVoidBills).forEach(([dateStr, arr]) => {
+        if (Array.isArray(arr)) {
+          if (!aggregatedVoidBills[dateStr]) aggregatedVoidBills[dateStr] = [];
+          aggregatedVoidBills[dateStr].push(...arr);
+        }
+      });
+    }
   }
 
   // 2. Iterate over each outlet in allOutletsData
   if (allOutletsData && typeof allOutletsData === 'object') {
     Object.entries(allOutletsData).forEach(([outletName, outletData]) => {
-      if (!outletData || typeof outletData !== 'object') return;
+      if (!outletData || typeof outletData !== 'object' || outletData.isDeleted) return;
 
       if (outletData.manpowerData && typeof outletData.manpowerData === 'object') {
         Object.assign(aggregatedManpowerData, outletData.manpowerData);
@@ -283,6 +292,18 @@ export const buildAggregatedGlobalData = (allOutletsData: Record<string, any>, c
       mergeOutletRootLedger(outletData.dailyThirdPartyLedger, aggregatedThirdPartyLedger);
       if (outletData.energyCost && typeof outletData.energyCost === 'object') {
         Object.assign(aggregatedEnergyCost, outletData.energyCost);
+      }
+      if (outletData.dailyVoidBills) {
+        Object.entries(outletData.dailyVoidBills).forEach(([dStr, list]: [string, any]) => {
+          if (Array.isArray(list)) {
+            if (!aggregatedVoidBills[dStr]) aggregatedVoidBills[dStr] = [];
+            list.forEach((v: any) => {
+              if (!aggregatedVoidBills[dStr].some((x: any) => x.id === v.id)) {
+                aggregatedVoidBills[dStr].push({ ...v, outlet: v.outlet || outletName });
+              }
+            });
+          }
+        });
       }
 
       // Iterate through months 0-11
@@ -592,6 +613,18 @@ export const buildAggregatedGlobalData = (allOutletsData: Record<string, any>, c
         if (mData.dailyGSI) {
           Object.assign(aggregatedDailyGSI, mData.dailyGSI);
         }
+        if (mData.dailyVoidBills) {
+          Object.entries(mData.dailyVoidBills).forEach(([dStr, list]: [string, any]) => {
+            if (Array.isArray(list)) {
+              if (!aggregatedVoidBills[dStr]) aggregatedVoidBills[dStr] = [];
+              list.forEach((v: any) => {
+                if (!aggregatedVoidBills[dStr].some((x: any) => x.id === v.id)) {
+                  aggregatedVoidBills[dStr].push({ ...v, outlet: v.outlet || outletName });
+                }
+              });
+            }
+          });
+        }
       }
     });
   }
@@ -669,6 +702,7 @@ export const buildAggregatedGlobalData = (allOutletsData: Record<string, any>, c
     peminjamanRecords: aggregatedPeminjamanRecords,
     logisticBeginningStocks: aggregatedLogisticBeginningStocks,
     logisticPeriodPrices: aggregatedLogisticPeriodPrices,
-    manpowerData: aggregatedManpowerData
+    manpowerData: aggregatedManpowerData,
+    dailyVoidBills: aggregatedVoidBills
   };
 };

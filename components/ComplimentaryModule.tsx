@@ -157,19 +157,25 @@ export const ComplimentaryModule: React.FC<Props> = ({
           }
         });
       }
-      targetStates.push(data);
+      if (data && (!data.outlet || data.outlet === 'ALL')) {
+        targetStates.push(data);
+      }
     } else {
-      targetStates.push(data);
-      if (allMonthlyData) {
-        if (allMonthlyData[activeOutlet]) {
-          Object.values(allMonthlyData[activeOutlet]).forEach(st => {
-            if (st) targetStates.push(st as AppState);
-          });
-        } else if (allMonthlyData[String(selectedMonth)]) {
+      if (allMonthlyData && allMonthlyData[activeOutlet]) {
+        Object.values(allMonthlyData[activeOutlet]).forEach(st => {
+          if (st) targetStates.push(st as AppState);
+        });
+      } else if (!isRegionalView && propSelectedOutlet === activeOutlet) {
+        if (allMonthlyData && allMonthlyData[String(selectedMonth)]) {
           Object.values(allMonthlyData).forEach(st => {
             if (st) targetStates.push(st as AppState);
           });
         }
+        if (data && (!data.outlet || data.outlet === activeOutlet)) {
+          targetStates.push(data);
+        }
+      } else if (data && data.outlet === activeOutlet) {
+        targetStates.push(data);
       }
     }
 
