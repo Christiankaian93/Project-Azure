@@ -134,8 +134,7 @@ export const EnergyCostModule: React.FC<Props> = ({
       stats[m] = { totalSpend: 0, totalKwh: 0, daysCount: 0 };
     }
 
-    const targetOutlet = (!isRegionalView && propSelectedOutlet) ? propSelectedOutlet : (activeOutlet === 'ALL' ? (propSelectedOutlet || '') : activeOutlet);
-    if (!targetOutlet) return stats;
+    const targetOutlet = (!isRegionalView && propSelectedOutlet) ? propSelectedOutlet : (activeOutlet === 'ALL' ? (propSelectedOutlet || 'SH THE BARN') : activeOutlet);
 
     for (let m = 0; m < 12; m++) {
       const st = resolveOutletState(targetOutlet, m, selectedYear);

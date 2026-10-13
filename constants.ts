@@ -50,26 +50,16 @@ export const markOutletDeleted = (name: string) => {
         deleted.push(name);
         localStorage.setItem('APP_DELETED_OUTLETS', JSON.stringify(deleted));
       }
-      const raw = localStorage.getItem('APP_OUTLET_CONFIGS');
-      if (raw) {
-        try {
-          const parsed = JSON.parse(raw);
-          if (Array.isArray(parsed)) {
-            const updated = parsed.filter((o: any) => o.name !== name && o.id !== name);
-            localStorage.setItem('APP_OUTLET_CONFIGS', JSON.stringify(updated));
-          }
-        } catch (e) {}
-      }
-      fetch(`/api/sync/outlet/${encodeURIComponent(name)}`, { method: 'DELETE' }).catch(() => {});
     }
   } catch (e) {}
 };
 
 export const getActiveOutletConfigs = (customOutlets?: OutletConfig[]): OutletConfig[] => {
   const deletedSet = new Set(getDeletedOutletNames());
+  const defaultNames = new Set(DEFAULT_OUTLET_CONFIGS.map(d => d.name));
 
   if (customOutlets && Array.isArray(customOutlets) && customOutlets.length > 0) {
-    return customOutlets.filter(o => !o.isDeleted && !deletedSet.has(o.name) && !deletedSet.has(o.id));
+    return customOutlets.filter(o => !o.isDeleted && (!deletedSet.has(o.name) || defaultNames.has(o.name)));
   }
   try {
     const raw = typeof window !== 'undefined' ? localStorage.getItem('APP_OUTLET_CONFIGS') : null;
@@ -77,36 +67,33 @@ export const getActiveOutletConfigs = (customOutlets?: OutletConfig[]): OutletCo
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed) && parsed.length > 0) {
         const merged = [...parsed];
+        // Ensure all core 8 outlets exist
         DEFAULT_OUTLET_CONFIGS.forEach(def => {
-          if (!deletedSet.has(def.name) && !merged.some((m: any) => m.name === def.name)) {
+          if (!merged.some((m: any) => m.name === def.name)) {
             merged.push(def);
           }
         });
-        return merged.filter((o: any) => !o.isDeleted && !deletedSet.has(o.name) && !deletedSet.has(o.id));
+        return merged.filter((o: any) => !o.isDeleted && (!deletedSet.has(o.name) || defaultNames.has(o.name)));
       }
     }
   } catch (e) {
     // fallback
   }
-  return DEFAULT_OUTLET_CONFIGS.filter(o => !deletedSet.has(o.name));
+  return DEFAULT_OUTLET_CONFIGS;
 };
 
 export const getActiveOutletNames = (customOutlets?: OutletConfig[]): string[] => {
-  const deletedSet = new Set(getDeletedOutletNames());
   const configs = getActiveOutletConfigs(customOutlets);
-  return configs.map(c => c.name).filter(n => !deletedSet.has(n));
+  return configs.map(c => c.name);
 };
 
 export const isOutletActive = (name: string): boolean => {
-  const deletedSet = new Set(getDeletedOutletNames());
-  if (deletedSet.has(name)) return false;
   const activeNames = getActiveOutletNames();
   return activeNames.includes(name);
 };
 
 export const getActiveRegionalAreas = (activeNames?: string[]): Record<string, Outlet[]> => {
-  const deletedSet = new Set(getDeletedOutletNames());
-  const activeList = (activeNames || getActiveOutletNames()).filter(n => !deletedSet.has(n));
+  const activeList = activeNames || getActiveOutletNames();
   const activeSet = new Set(activeList);
   const areas: Record<string, Outlet[]> = {
     'JAKARTA': [],
@@ -117,7 +104,7 @@ export const getActiveRegionalAreas = (activeNames?: string[]): Record<string, O
   // Populate from active configs first
   const configs = getActiveOutletConfigs();
   configs.forEach(cfg => {
-    if (cfg.isDeleted || deletedSet.has(cfg.name) || !activeSet.has(cfg.name)) return;
+    if (cfg.isDeleted || !activeSet.has(cfg.name)) return;
     const area = cfg.area || 'JAKARTA';
     const normalizedArea = area.toUpperCase().includes('BEKASI') || area.toUpperCase().includes('CIBUBUR')
       ? 'BEKASI & CIBUBUR'
@@ -130,11 +117,11 @@ export const getActiveRegionalAreas = (activeNames?: string[]): Record<string, O
     }
   });
 
-  // Ensure default area outlets that are active and not deleted are included
+  // Ensure default area outlets that are active are included
   Object.entries(REGIONAL_AREAS).forEach(([a, list]) => {
     if (!areas[a]) areas[a] = [];
     list.forEach(o => {
-      if (activeSet.has(o) && !deletedSet.has(o) && !areas[a].includes(o)) {
+      if (activeSet.has(o) && !areas[a].includes(o)) {
         areas[a].push(o);
       }
     });
@@ -431,7 +418,6 @@ export const INITIAL_STATE: AppState = {
   peminjamanRecords: [],
   logisticBeginningStocks: {},
   logisticPeriodPrices: {},
-  dailyVoidBills: {},
 };
 
 export const QA_PASSING_SCORES = {

@@ -20,7 +20,6 @@ const Dashboard: React.FC<Props> = ({ onSelect, isAdmin, onToggleFS, onOpenLogis
     { type: ModuleType.CITY_LEDGER, label: 'City Ledger', icon: 'fa-building', color: 'from-blue-600 to-cyan-700', desc: 'Bill City Ledger & Matrix Detail Piutang' },
     { type: ModuleType.GUEST_SATISFACTION, label: 'Guest Satisfaction', icon: 'fa-face-smile', color: 'from-emerald-600 to-teal-700', desc: 'Customer Care & Matrix Detail Recovery' },
     { type: ModuleType.COMPLIMENTARY, label: 'Complimentary', icon: 'fa-gift', color: 'from-purple-600 to-pink-700', desc: 'Bill Complimentary & Matrix Detail Promo' },
-    { type: ModuleType.VOID_BILL, label: 'Catatan Void Bill', icon: 'fa-ban', color: 'from-rose-600 to-pink-700', desc: 'Catatan Void Bill, Nama Staff, PIC & Reason' },
     { type: ModuleType.STRATEGI, label: 'Menu Strategi', icon: 'fa-bullseye', color: 'from-amber-500 to-orange-600', desc: 'Target & Actual Penyeimbang & Percepatan Lunch/Dinner' },
     { type: ModuleType.WEEKLY_OVERTIME, label: 'Input Weekly Overtime', icon: 'fa-business-time', color: 'from-indigo-600 to-purple-800', desc: 'Total Staff, Total Overtime & Average Overtime' },
     { type: ModuleType.COGS, label: 'COGS & Forecast Rev', icon: 'fa-calculator', color: 'from-emerald-600 to-teal-700', desc: 'HPP COGS, Forecast Revenue Weekday & Weekend' },

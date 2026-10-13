@@ -750,7 +750,7 @@ export const CogsModule: React.FC<Props> = ({
         const outletMap = (allMonthlyData as any)[selectedOutlet];
         const m = outletMap[String(selectedMonth)] || outletMap[selectedMonth];
         if (m) states.push(m as AppState);
-      } else if (data && data.outlet === selectedOutlet) {
+      } else if (data && (!data.outlet || data.outlet === selectedOutlet)) {
         states.push(data);
       }
     } else {
@@ -2291,8 +2291,8 @@ ${sc.isRecorded ? `- Realisasi Total Sales : Rp.${sc.actualTotal.toLocaleString(
         const outletMap = (allMonthlyData as any)[selectedOutlet];
         const m = outletMap[String(lastMonthIdx)] || outletMap[lastMonthIdx];
         if (m) states.push(m as AppState);
-      } else if (data && data.outlet === selectedOutlet && (data as any)[String(lastMonthIdx)]) {
-        states.push((data as any)[String(lastMonthIdx)] as AppState);
+      } else if (allMonthlyData && (allMonthlyData as any)[String(lastMonthIdx)]) {
+        states.push((allMonthlyData as any)[String(lastMonthIdx)] as AppState);
       }
     } else {
       if (allMonthlyData) {

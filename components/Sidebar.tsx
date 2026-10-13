@@ -28,7 +28,6 @@ const Sidebar: React.FC<Props> = ({ active, onSelect, isAdmin }) => {
     { type: ModuleType.CITY_LEDGER, label: 'City Ledger', icon: 'fa-building', color: 'text-blue-400' },
     { type: ModuleType.GUEST_SATISFACTION, label: 'Guest Satisfaction', icon: 'fa-face-smile', color: 'text-emerald-400' },
     { type: ModuleType.COMPLIMENTARY, label: 'Complimentary', icon: 'fa-gift', color: 'text-purple-400' },
-    { type: ModuleType.VOID_BILL, label: 'Catatan Void Bill', icon: 'fa-ban', color: 'text-rose-400' },
     { type: ModuleType.STRATEGI, label: 'Menu Strategi', icon: 'fa-bullseye', color: 'text-amber-400' },
     { type: ModuleType.TUTORIAL, label: 'Tutorial & SOP', icon: 'fa-graduation-cap', color: 'text-amber-400' },
   ];
@@ -102,7 +101,6 @@ const Sidebar: React.FC<Props> = ({ active, onSelect, isAdmin }) => {
                 { type: ModuleType.REGIONAL_REPORT, label: 'City Ledger', icon: 'fa-building', tab: 'CITY_LEDGER', color: 'text-blue-400' },
                 { type: ModuleType.REGIONAL_REPORT, label: 'Guest Satisfaction', icon: 'fa-face-smile', tab: 'SATISFACTION', color: 'text-emerald-400' },
                 { type: ModuleType.REGIONAL_REPORT, label: 'Complimentary', icon: 'fa-gift', tab: 'COMPLIMENTARY', color: 'text-purple-400' },
-                { type: ModuleType.REGIONAL_REPORT, label: 'Rekapan Void Bill', icon: 'fa-ban', tab: 'VOID_BILL_REGIONAL', color: 'text-rose-400' },
                 { type: ModuleType.REGIONAL_REPORT, label: 'Menu Strategi', icon: 'fa-bullseye', tab: 'STRATEGI_MENU_REGIONAL', color: 'text-amber-400' },
                 { type: ModuleType.REGIONAL_REPORT, label: 'Rekapan Promo Bank', icon: 'fa-tags', tab: 'BANKING_PROMO_REGIONAL', color: 'text-purple-400' },
               ].map((sub, idx) => (
