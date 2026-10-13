@@ -93,10 +93,7 @@ const ReceivingSheetModule: React.FC<Props> = ({
         const outletMap = (allMonthlyData as any)[selectedOutlet];
         const m = outletMap[String(selectedMonth)] || outletMap[selectedMonth];
         if (m) list.push(m);
-      } else if (allMonthlyData && ((allMonthlyData as any)[String(selectedMonth)] || (allMonthlyData as any)[selectedMonth])) {
-        const m = (allMonthlyData as any)[String(selectedMonth)] || (allMonthlyData as any)[selectedMonth];
-        if (m) list.push(m);
-      } else if (data && (!data.outlet || data.outlet === selectedOutlet)) {
+      } else if (data && data.outlet === selectedOutlet) {
         list.push(data);
       }
     } else {

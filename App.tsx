@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { ModuleType, AppState, User, SyncStatus, Outlet, Notification, LeaveRecord } from './types';
-import { INITIAL_STATE, ROLES_BY_DIVISION, DIVISIONS, OUTLETS, getActiveOutletNames } from './constants';
+import { INITIAL_STATE, ROLES_BY_DIVISION, DIVISIONS, OUTLETS, getActiveOutletNames, getDeletedOutletNames } from './constants';
 import { fetchUserData, saveGlobalData, saveOutletData, startRealtimeListener, startNotificationListener, isQuotaExceeded, resetQuotaExceeded, fetchAllOutletsData, startAllOutletsListener, testConnection } from './services/cloudService';
 import { safeStorage, safeClipboard, safeWindow } from './lib/safeStorage';
 import { toLocalDateStr } from './lib/dateUtils';
@@ -36,6 +36,7 @@ import ComplimentaryModule from './components/ComplimentaryModule';
 import EnergyCostModule from './components/EnergyCostModule';
 import WeeklyOvertimeInputModule from './components/WeeklyOvertimeInputModule';
 import { StrategiMenuModule } from './components/StrategiMenuModule';
+import { VoidBillModule } from './components/VoidBillModule';
 import RealtimeFeatures from './components/RealtimeFeatures';
 import DailyReminderPopup from './components/DailyReminderPopup';
 import { OutletControlModal } from './components/OutletControlModal';
@@ -551,7 +552,7 @@ const App: React.FC = () => {
         });
       }
     }
-    if (globalData.dailyOvertime) {
+    if (globalData.dailyOvertime && (!globalData.outlet || globalData.outlet === user.selectedOutlet)) {
       Object.entries(globalData.dailyOvertime).forEach(([dateStr, entries]) => {
         if (Array.isArray(entries) && entries.length > 0) {
           mergedDailyOvertime[dateStr] = entries;
@@ -561,7 +562,7 @@ const App: React.FC = () => {
 
     // Consolidate manpowerData across all 12 months, globalData, and monthBase so filled manpower is never lost when changing months
     const mergedManpowerData: Record<string, any> = {};
-    if (globalData.manpowerData && typeof globalData.manpowerData === 'object') {
+    if (globalData.manpowerData && typeof globalData.manpowerData === 'object' && (!globalData.outlet || globalData.outlet === user.selectedOutlet)) {
       Object.assign(mergedManpowerData, globalData.manpowerData);
     }
     for (let m = 0; m < 12; m++) {
@@ -574,6 +575,25 @@ const App: React.FC = () => {
       Object.assign(mergedManpowerData, monthBase.manpowerData);
     }
 
+    const mergedDailyVoidBills: Record<string, any[]> = {};
+    for (let m = 0; m < 12; m++) {
+      const mData = outletMonthlyData[m.toString()];
+      if (mData && mData.dailyVoidBills) {
+        Object.entries(mData.dailyVoidBills).forEach(([dStr, list]) => {
+          if (Array.isArray(list) && list.length > 0) {
+            mergedDailyVoidBills[dStr] = list;
+          }
+        });
+      }
+    }
+    if (monthBase.dailyVoidBills) {
+      Object.entries(monthBase.dailyVoidBills).forEach(([dStr, list]) => {
+        if (Array.isArray(list) && list.length > 0) {
+          mergedDailyVoidBills[dStr] = list;
+        }
+      });
+    }
+
     return {
       ...monthBase,
       staffList,
@@ -584,7 +604,8 @@ const App: React.FC = () => {
       logisticBeginningStocks: mergedBeginningStocks,
       dailyLogisticRecords: mergedDailyRecords,
       peminjamanRecords: mergedPeminjaman,
-      logisticPeriodPrices: mergedPeriodPrices
+      logisticPeriodPrices: mergedPeriodPrices,
+      dailyVoidBills: mergedDailyVoidBills
     } as AppState;
   }, [outletMonthlyData, filters.month, globalData.manpowerData]);
 
@@ -668,19 +689,20 @@ const App: React.FC = () => {
   }, []);
 
   const mergedAllOutletsData = useMemo(() => {
-    const activeNames = new Set(getActiveOutletNames());
+    const deletedNames = new Set(getDeletedOutletNames());
+    const activeNames = new Set(getActiveOutletNames().filter(n => !deletedNames.has(n)));
     const merged: Record<string, any> = {};
 
-    // 1. Include all valid outlets from Firestore listener & server sync (allOutletsData)
+    // 1. Include only valid non-deleted active outlets from Firestore listener & server sync
     Object.entries(allOutletsData).forEach(([oName, oVal]: [string, any]) => {
-      if (oVal) {
+      if (oVal && !oVal.isDeleted && !deletedNames.has(oName) && activeNames.has(oName)) {
         merged[oName] = { ...oVal, isDeleted: false };
       }
     });
 
-    // 2. Also ensure all configured active outlets exist in merged
+    // 2. Also ensure all configured active outlets exist in merged if not deleted
     activeNames.forEach(name => {
-      if (!merged[name]) {
+      if (!merged[name] && !deletedNames.has(name)) {
         merged[name] = { monthlyData: {}, isDeleted: false };
       }
     });
@@ -970,6 +992,8 @@ const App: React.FC = () => {
   const handleLogin = async (email: string, outlet: Outlet) => {
     isHydrated.current = false;
     setIsRefreshing(true);
+    setGlobalDataState({ ...INITIAL_STATE, outlet });
+    setOutletMonthlyDataState({});
 
     let cloudData = await fetchUserData(email, outlet);
 
@@ -1029,10 +1053,11 @@ const App: React.FC = () => {
       const { staffList, leaveRecords, dailyOvertime, dailyAttendance, dailyExternalAudit, dailyCPA, guestComplaints, affiliateHistory, ...rest } = cloudData;
       
       const hydratedGlobal: any = {
-        staffList: staffList || INITIAL_STATE.staffList,
-        leaveRecords: leaveRecords || INITIAL_STATE.leaveRecords,
-        dailyOvertime: dailyOvertime || INITIAL_STATE.dailyOvertime,
-        dailyAttendance: dailyAttendance || INITIAL_STATE.dailyAttendance,
+        outlet,
+        staffList: staffList || [],
+        leaveRecords: leaveRecords || [],
+        dailyOvertime: dailyOvertime || {},
+        dailyAttendance: dailyAttendance || {},
         dailyExternalAudit: dailyExternalAudit || {},
         dailyCPA: dailyCPA || {},
         guestComplaints: guestComplaints || [],
@@ -1737,6 +1762,8 @@ const App: React.FC = () => {
     try {
       await signOut(auth);
       setUser({ email: '', isLoggedIn: false });
+      setGlobalDataState(INITIAL_STATE);
+      setOutletMonthlyDataState({});
       safeStorage.removeItem('BARN_USER_SESSION');
       safeStorage.removeItem('MANUAL_USER_EMAIL');
       safeStorage.removeItem('BARN_SELECTED_OUTLET');
@@ -2037,6 +2064,16 @@ const App: React.FC = () => {
             onUpdate={updateCurrentData}
             showToast={showToast}
             allMonthlyData={outletMonthlyData}
+          />;
+        case ModuleType.VOID_BILL:
+          return <VoidBillModule
+            data={currentData}
+            allMonthlyData={outletMonthlyData}
+            filters={filters}
+            selectedOutlet={user.selectedOutlet!}
+            isRegionalView={false}
+            onUpdate={updateCurrentData}
+            showToast={showToast}
           />;
         case ModuleType.REGIONAL_REPORT:
           return <RegionalManagerModule 

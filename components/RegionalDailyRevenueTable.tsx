@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
 import { Outlet } from '../types';
-import { MONTHS, OUTLETS, getAreaForOutlet, getActiveOutletNames } from '../constants';
+import { MONTHS, OUTLETS, getAreaForOutlet, getActiveOutletNames, getDeletedOutletNames } from '../constants';
 
 interface Props {
   data: Record<string, any>;
@@ -70,9 +70,10 @@ export const RegionalDailyRevenueTable: React.FC<Props> = ({
 
   // Compute active outlets
   const targetOutlets = useMemo(() => {
+    const deletedSet = new Set(getDeletedOutletNames());
     const baseList = displayedOutlets && displayedOutlets.length > 0 
-      ? displayedOutlets 
-      : Array.from(new Set([...getActiveOutletNames(), ...Object.keys(data || {})])).filter(o => !data?.[o]?.isDeleted) as Outlet[];
+      ? displayedOutlets.filter(o => !deletedSet.has(o)) 
+      : getActiveOutletNames().filter(o => !deletedSet.has(o) && !data?.[o]?.isDeleted) as Outlet[];
 
     return baseList.filter(outlet => {
       const area = getAreaForOutlet(outlet);

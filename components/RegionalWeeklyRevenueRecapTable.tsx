@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
-import { OUTLETS, REGIONAL_AREAS, getAreaForOutlet, getActiveOutletNames } from '../constants';
+import { OUTLETS, REGIONAL_AREAS, getAreaForOutlet, getActiveOutletNames, getDeletedOutletNames } from '../constants';
 import { RegionalRevenueContributionTable } from './RegionalRevenueContributionTable';
 import { RegionalWeekdayWeekendRevenueTable } from './RegionalWeekdayWeekendRevenueTable';
 
@@ -86,10 +86,9 @@ export const RegionalWeeklyRevenueRecapTable: React.FC<Props> = ({
   const monthName = MONTH_NAMES[selectedMonth];
 
   const activeOutletsList = useMemo(() => {
-    const fromConfig = getActiveOutletNames();
-    const fromData = Object.keys(allOutletsData || {});
-    const combined = Array.from(new Set([...fromConfig, ...fromData]));
-    return combined.filter(name => {
+    const deletedSet = new Set(getDeletedOutletNames());
+    const fromConfig = getActiveOutletNames().filter(n => !deletedSet.has(n));
+    return fromConfig.filter(name => {
       const d = allOutletsData?.[name];
       return !d || !d.isDeleted;
     });

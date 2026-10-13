@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { AppState, LedgerItem, Outlet } from '../types';
-import { OUTLETS } from '../constants';
+import { OUTLETS, INITIAL_STATE } from '../constants';
 import BelanjaFullTanggalRecapTable, { RecapColumnDef, DayDetailItem } from './BelanjaFullTanggalRecapTable';
 
 interface Props {
@@ -93,7 +93,11 @@ export const ThirdPartyGasModule: React.FC<Props> = ({
       }
     }
 
-    return data;
+    if (data && (!data.outlet || data.outlet === outletName)) {
+      return data;
+    }
+
+    return { ...INITIAL_STATE, outlet: outletName } as AppState;
   };
 
   // Aggregate monthly states

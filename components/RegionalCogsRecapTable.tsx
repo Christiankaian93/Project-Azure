@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
-import { getAreaForOutlet, getActiveOutletNames } from '../constants';
+import { getAreaForOutlet, getActiveOutletNames, getDeletedOutletNames } from '../constants';
 import { AppState } from '../types';
 
 interface Props {
@@ -81,10 +81,9 @@ export const RegionalCogsRecapTable: React.FC<Props> = ({
 
   // List of all active outlets
   const activeOutletsList = useMemo(() => {
-    const fromConfig = getActiveOutletNames();
-    const fromData = Object.keys(allOutletsData || {});
-    const combined = Array.from(new Set([...fromConfig, ...fromData]));
-    return combined.filter(name => {
+    const deletedSet = new Set(getDeletedOutletNames());
+    const fromConfig = getActiveOutletNames().filter(n => !deletedSet.has(n));
+    return fromConfig.filter(name => {
       const d = allOutletsData?.[name];
       return !d || !d.isDeleted;
     });

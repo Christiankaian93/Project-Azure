@@ -143,10 +143,36 @@ async function startServer() {
   app.get("/api/sync/all-outlets", (_req, res) => {
     try {
       const outlets = readOutletsData();
-      res.json({ success: true, outlets });
+      const activeOutlets: Record<string, any> = {};
+      Object.entries(outlets).forEach(([id, data]: [string, any]) => {
+        if (data && !data.isDeleted) {
+          activeOutlets[id] = data;
+        }
+      });
+      res.json({ success: true, outlets: activeOutlets });
     } catch (error) {
       console.error("Error reading all outlets:", error);
       res.status(500).json({ error: "Failed to read outlets" });
+    }
+  });
+
+  app.delete("/api/sync/outlet/:outletId", (req, res) => {
+    try {
+      const { outletId } = req.params;
+      const outlets = readOutletsData();
+      if (outlets[outletId]) {
+        delete outlets[outletId];
+        writeOutletsData(outlets);
+      }
+      const sysConfig = readSystemConfig();
+      if (Array.isArray(sysConfig.outlets)) {
+        sysConfig.outlets = sysConfig.outlets.filter((o: any) => o.name !== outletId && o.id !== outletId);
+        writeSystemConfig(sysConfig);
+      }
+      res.json({ success: true, deleted: outletId });
+    } catch (error) {
+      console.error(`Error deleting outlet ${req.params.outletId}:`, error);
+      res.status(500).json({ error: "Failed to delete outlet" });
     }
   });
 
@@ -154,7 +180,12 @@ async function startServer() {
     try {
       const { outletId } = req.params;
       const outlets = readOutletsData();
-      res.json({ success: true, outlet: outlets[outletId] || null });
+      const o = outlets[outletId];
+      if (o && !o.isDeleted) {
+        res.json({ success: true, outlet: o });
+      } else {
+        res.json({ success: true, outlet: null });
+      }
     } catch (error) {
       console.error(`Error reading outlet ${req.params.outletId}:`, error);
       res.status(500).json({ error: "Failed to read outlet" });

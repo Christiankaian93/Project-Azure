@@ -20,7 +20,7 @@ import { auth, db } from "../firebase";
 import { safeStorage } from "../lib/safeStorage";
 
 import { Notification, Outlet } from "../types";
-import { OUTLETS } from "../constants";
+import { OUTLETS, getDeletedOutletNames } from "../constants";
 
 export enum OperationType {
   CREATE = 'create',
@@ -856,6 +856,8 @@ export async function fetchAllOutletsData(): Promise<Record<string, any> | null>
   const cacheKey = "BARN_OFFLINE_CACHE_ALL_OUTLETS";
   const results: Record<string, any> = {};
 
+  const deletedSet = new Set(getDeletedOutletNames());
+
   // 1. Fetch from server-side sync API
   try {
     const sRes = await fetch('/api/sync/all-outlets');
@@ -863,7 +865,7 @@ export async function fetchAllOutletsData(): Promise<Record<string, any> | null>
       const sJson = await sRes.json();
       if (sJson.outlets && typeof sJson.outlets === 'object') {
         Object.entries(sJson.outlets).forEach(([id, data]: [string, any]) => {
-          if (!data) return;
+          if (!data || data.isDeleted || deletedSet.has(id)) return;
           const filled = unpackOutletDocument(data);
           results[id] = {
             ...filled,
@@ -889,12 +891,15 @@ export async function fetchAllOutletsData(): Promise<Record<string, any> | null>
         snap = await getDocs(colRef);
       }
       snap.forEach(docSnap => {
+        const id = docSnap.id;
+        if (deletedSet.has(id)) return;
         const data = docSnap.data();
+        if (data?.isDeleted) return;
         const filled = unpackOutletDocument(data);
-        const existing = results[docSnap.id];
+        const existing = results[id];
         const cloudUpdated = data.updatedAt?.toDate?.()?.toISOString() || null;
         if (!existing || (cloudUpdated && (!existing._lastUpdated || cloudUpdated >= existing._lastUpdated))) {
-          results[docSnap.id] = {
+          results[id] = {
             ...filled,
             isDeleted: false,
             _googleReview: data.googleReview || null,
@@ -933,9 +938,10 @@ export function startAllOutletsListener(onUpdate: (data: Record<string, any>) =>
       if (res.ok) {
         const json = await res.json();
         if (json.outlets && typeof json.outlets === 'object') {
+          const currentDeleted = new Set(getDeletedOutletNames());
           const processed: Record<string, any> = {};
           Object.entries(json.outlets).forEach(([id, data]: [string, any]) => {
-            if (!data) return;
+            if (!data || data.isDeleted || currentDeleted.has(id)) return;
             const filled = unpackOutletDocument(data);
             processed[id] = {
               ...filled,
@@ -964,11 +970,15 @@ export function startAllOutletsListener(onUpdate: (data: Record<string, any>) =>
     try {
       const colRef = collection(db, COLLECTION_NAME);
       unsubFirestore = onSnapshot(colRef, (snap) => {
+        const currentDeleted = new Set(getDeletedOutletNames());
         const results: any = {};
         snap.forEach((docSnap) => {
+          const id = docSnap.id;
+          if (currentDeleted.has(id)) return;
           const data = docSnap.data();
+          if (data?.isDeleted) return;
           const filled = unpackOutletDocument(data);
-          results[docSnap.id] = {
+          results[id] = {
             ...filled,
             isDeleted: false,
             _googleReview: data.googleReview || null,
